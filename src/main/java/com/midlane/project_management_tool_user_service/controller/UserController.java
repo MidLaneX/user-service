@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @RestController
@@ -39,6 +40,13 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDTO> getUserById(@PathVariable String id) {
         return ResponseEntity.ok(userService.getUserById(id));
+    }
+
+    @Operation(summary = "Get current user using X-User-Id header")
+    @GetMapping("/me")
+    public ResponseEntity<UserResponseDTO> getCurrentUser(@RequestHeader("X-User-Id") String userId) {
+        log.info("Fetching current user by X-User-Id: {}", userId);
+        return ResponseEntity.ok(userService.getUserById(userId));
     }
 
     @Operation(summary = "Delete user by ID")
