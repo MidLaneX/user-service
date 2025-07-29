@@ -1,210 +1,114 @@
 # Git Commands Reference
 
-This document provides a step-by-step guide for Git operations from repository initialization to collaboration workflows.
+This document provides the correct command order for initializing a Git repository with the default branch as main and connecting to a remote origin.
 
-## 1. Initialize Git Repository
+## 1. Initialize Git Repository with Main Branch
 
 ```bash
 # Initialize a new Git repository
 git init
 
-# Set default branch to main (if not already configured globally)
+# Set the default branch to main (if not already configured globally)
 git config --global init.defaultBranch main
 
-# Or rename current branch to main if already initialized
+# Or rename the current branch to main if it was created as master
 git branch -M main
 ```
 
-## 2. Initial Configuration (First Time Setup)
+## 2. Add and Commit Initial Files
 
 ```bash
-# Set your identity
-git config --global user.name "Your Name"
-git config --global user.email "your.email@example.com"
-
-# Optional: Set default editor
-git config --global core.editor "code --wait"  # For VS Code
-```
-
-## 3. Add Files and Make Initial Commit
-
-```bash
-# Check repository status
-git status
-
 # Add all files to staging area
 git add .
 
-# Or add specific files
-git add filename.txt
-
-# Make your first commit
+# Create initial commit
 git commit -m "Initial commit"
 ```
 
-## 4. Connect to Remote Repository (Origin)
+## 3. Connect to Remote Origin
 
 ```bash
-# Add remote origin (replace URL with your repository URL)
+# Add remote origin (replace with your repository URL)
 git remote add origin https://github.com/username/repository-name.git
 
-# Or for SSH
-git remote add origin git@github.com:username/repository-name.git
-
-# Verify remote connection
+# Verify remote was added correctly
 git remote -v
 ```
 
-## 5. Push to Remote Repository
+## 4. Push to Remote Repository
 
 ```bash
-# Push and set upstream for the first time
+# Push to remote repository and set upstream
 git push -u origin main
 
-# For subsequent pushes (after upstream is set)
+# For subsequent pushes, you can simply use:
 git push
 ```
 
-## 6. Pull Changes from Remote
+## 5. Pull Changes from Remote
 
 ```bash
 # Pull latest changes from remote
 git pull origin main
 
-# Or simply (if upstream is set)
+# Or if upstream is set:
 git pull
-
-# Pull with rebase (alternative)
-git pull --rebase origin main
 ```
 
-## Complete Workflow Order
+## Complete Command Sequence
 
-### First Time Setup (New Repository):
-1. `git init`
-2. `git config --global init.defaultBranch main` (if needed)
-3. `git add .`
-4. `git commit -m "Initial commit"`
-5. `git remote add origin <repository-url>`
-6. `git push -u origin main`
+Here's the complete sequence in order:
 
-### Daily Workflow:
-1. `git pull` (get latest changes)
-2. Make your changes
-3. `git add .` (stage changes)
-4. `git commit -m "Your commit message"`
-5. `git push` (push to remote)
-
-## Common Git Commands
-
-### Repository Status and History
 ```bash
-# Check status of working directory
+# 1. Initialize repository
+git init
+git branch -M main
+
+# 2. Add and commit files
+git add .
+git commit -m "Initial commit"
+
+# 3. Connect to remote
+git remote add origin https://github.com/username/repository-name.git
+
+# 4. Push to remote
+git push -u origin main
+
+# 5. Pull changes (for future updates)
+git pull origin main
+```
+
+## Additional Useful Commands
+
+```bash
+# Check repository status
 git status
 
 # View commit history
 git log --oneline
 
-# View changes in files
-git diff
-```
-
-### Branch Operations
-```bash
-# List all branches
+# Check which branch you're on
 git branch
 
-# Create new branch
+# Create and switch to new branch
 git checkout -b feature-branch-name
 
-# Switch to existing branch
-git checkout branch-name
+# Switch between branches
+git checkout main
+git checkout feature-branch-name
 
-# Merge branch into current branch
-git merge branch-name
+# Merge branch into main
+git checkout main
+git merge feature-branch-name
 
 # Delete branch
-git branch -d branch-name
-```
-
-### Undoing Changes
-```bash
-# Unstage files
-git reset HEAD filename
-
-# Discard changes in working directory
-git checkout -- filename
-
-# Undo last commit (keep changes)
-git reset --soft HEAD~1
-
-# Undo last commit (discard changes)
-git reset --hard HEAD~1
-```
-
-### Remote Operations
-```bash
-# List remotes
-git remote -v
-
-# Add remote
-git remote add upstream <url>
-
-# Remove remote
-git remote remove origin
-
-# Fetch changes without merging
-git fetch origin
+git branch -d feature-branch-name
 ```
 
 ## Best Practices
 
-1. **Always pull before pushing**: `git pull` before `git push`
-2. **Use meaningful commit messages**: Be descriptive about what changed
-3. **Commit frequently**: Small, logical commits are better than large ones
-4. **Use branches**: Create feature branches for new development
-5. **Review changes**: Use `git diff` to review changes before committing
-
-## Troubleshooting
-
-### Common Issues and Solutions
-
-**Issue**: "fatal: remote origin already exists"
-```bash
-# Solution: Remove existing remote and add new one
-git remote remove origin
-git remote add origin <new-url>
-```
-
-**Issue**: Merge conflicts
-```bash
-# Solution: Resolve conflicts manually, then:
-git add .
-git commit -m "Resolve merge conflicts"
-```
-
-**Issue**: Push rejected (non-fast-forward)
-```bash
-# Solution: Pull first, then push
-git pull origin main
-git push origin main
-```
-
-## Quick Reference
-
-| Command | Description |
-|---------|-------------|
-| `git init` | Initialize repository |
-| `git add .` | Stage all changes |
-| `git commit -m "message"` | Commit with message |
-| `git push` | Push to remote |
-| `git pull` | Pull from remote |
-| `git status` | Check repository status |
-| `git log` | View commit history |
-| `git branch` | List branches |
-| `git checkout -b name` | Create and switch to new branch |
-| `git merge branch` | Merge branch into current |
-
----
-
-*Last updated: July 19, 2025*
+1. Always pull before pushing when working with others
+2. Use meaningful commit messages
+3. Commit small, logical changes
+4. Use branches for features and bug fixes
+5. Review changes before committing with `git status` and `git diff`
