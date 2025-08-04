@@ -1,87 +1,87 @@
 package com.midlane.project_management_tool_user_service.service;
 
-import com.midlane.project_management_tool_user_service.dto.TeamRequestDTO;
-import com.midlane.project_management_tool_user_service.dto.TeamResponseDTO;
+import com.midlane.project_management_tool_user_service.dto.CreateTeamRequest;
+import com.midlane.project_management_tool_user_service.dto.TeamResponse;
 import com.midlane.project_management_tool_user_service.model.Team;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.midlane.project_management_tool_user_service.repository.TeamRepository;
+import com.midlane.project_management_tool_user_service.repository.OrganizationRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-public interface TeamService {
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class TeamService {
 
-    /**
-     * Create a new team
-     */
-    TeamResponseDTO createTeam(TeamRequestDTO teamRequestDTO, String createdBy);
+    private final TeamRepository teamRepository;
+    private final OrganizationRepository organizationRepository;
 
-    /**
-     * Get all teams
-     */
-    List<TeamResponseDTO> getAllTeams();
+    public TeamResponse createTeam(Long organizationId, CreateTeamRequest request) {
+        if (!organizationRepository.existsById(organizationId)) {
+            throw new RuntimeException("Organization not found");
+        }
 
-    /**
-     * Get teams with pagination
-     */
-    Page<TeamResponseDTO> getAllTeams(Pageable pageable);
+        if (teamRepository.existsByNameAndOrganizationId(request.getName(), organizationId)) {
+            throw new RuntimeException("Team with this name already exists in this organization");
+        }
 
-    /**
-     * Get team by ID
-     */
-    TeamResponseDTO getTeamById(String id);
+        Team team = new Team();
+        team.setName(request.getName());
+        team.setDescription(request.getDescription());
+        team.setOrganizationId(organizationId);
 
-    /**
-     * Get team by name
-     */
-    TeamResponseDTO getTeamByName(String name);
+        Team savedTeam = teamRepository.save(team);
+        return mapToTeamResponse(savedTeam);
+    }
 
-    /**
-     * Update team
-     */
-    TeamResponseDTO updateTeam(String id, TeamRequestDTO teamRequestDTO);
+    @Transactional(readOnly = true)
+    public List<TeamResponse> getTeamsByOrganization(Long organizationId) {
+        return teamRepository.findByOrganizationId(organizationId).stream()
+                .map(this::mapToTeamResponse)
+                .collect(Collectors.toList());
+    }
 
-    /**
-     * Delete team
-     */
-    void deleteTeam(String id);
+    @Transactional(readOnly = true)
+    public TeamResponse getTeamById(Long id) {
+        Team team = teamRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Team not found"));
+        return mapToTeamResponse(team);
+    }
 
-    /**
-     * Add member to team
-     */
-    TeamResponseDTO addMemberToTeam(String teamId, String userId);
+    public TeamResponse updateTeam(Long id, CreateTeamRequest request) {
+        Team team = teamRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Team not found"));
 
-    /**
-     * Remove member from team
-     */
-    TeamResponseDTO removeMemberFromTeam(String teamId, String userId);
+        if (!team.getName().equals(request.getName()) &&
+            teamRepository.existsByNameAndOrganizationId(request.getName(), team.getOrganizationId())) {
+            throw new RuntimeException("Team with this name already exists in this organization");
+        }
 
-    /**
-     * Get teams by department
-     */
-    List<TeamResponseDTO> getTeamsByDepartment(String departmentId);
+        team.setName(request.getName());
+        team.setDescription(request.getDescription());
 
-    /**
-     * Get teams by type
-     */
-    List<TeamResponseDTO> getTeamsByType(Team.TeamType type);
+        Team savedTeam = teamRepository.save(team);
+        return mapToTeamResponse(savedTeam);
+    }
 
-    /**
-     * Get teams for a user
-     */
-    List<TeamResponseDTO> getTeamsForUser(String userId);
+    public void deleteTeam(Long id) {
+        if (!teamRepository.existsById(id)) {
+            throw new RuntimeException("Team not found");
+        }
+        teamRepository.deleteById(id);
+    }
 
-    /**
-     * Get team managed by user (if user is team lead)
-     */
-    TeamResponseDTO getTeamManagedByUser(String userId);
-
-    /**
-     * Get teams with available slots
-     */
-    List<TeamResponseDTO> getTeamsWithAvailableSlots();
-
-    /**
-     * Toggle team status
-     */
-    TeamResponseDTO toggleTeamStatus(String id);
+    private TeamResponse mapToTeamResponse(Team team) {
+        TeamResponse response = new TeamResponse();
+        response.setId(team.getId());
+        response.setName(team.getName());
+        response.setDescription(team.getDescription());
+        response.setOrganizationId(team.getOrganizationId());
+        response.setCreatedAt(team.getCreatedAt());
+        return response;
+    }
 }

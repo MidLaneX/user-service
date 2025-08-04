@@ -1,66 +1,94 @@
 package com.midlane.project_management_tool_user_service.service;
 
-import com.midlane.project_management_tool_user_service.dto.UserRequestDTO;
-import com.midlane.project_management_tool_user_service.dto.UserResponseDTO;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.midlane.project_management_tool_user_service.dto.CreateUserRequest;
+import com.midlane.project_management_tool_user_service.dto.UserResponse;
+import com.midlane.project_management_tool_user_service.model.User;
+import com.midlane.project_management_tool_user_service.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-public interface UserService {
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class UserService {
 
-    /**
-     * Create a new user
-     */
-    UserResponseDTO createUser(UserRequestDTO userRequestDTO);
+    private final UserRepository userRepository;
 
-    /**
-     * Get all users
-     */
-    List<UserResponseDTO> getAllUsers();
+    public UserResponse createUser(CreateUserRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+        if (userRepository.existsByUsername(request.getFirstName())) {
+            throw new RuntimeException("Username already exists");
+        }
 
-    /**
-     * Get users with pagination
-     */
-    Page<UserResponseDTO> getAllUsers(Pageable pageable);
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName()); // In real app, hash this password
+        user.setStatus(User.UserStatus.ACTIVE);
 
-    /**
-     * Get user by ID
-     */
-    UserResponseDTO getUserById(String id);
+        User savedUser = userRepository.save(user);
+        return mapToUserResponse(savedUser);
+    }
 
-    /**
-     * Get user by email
-     */
-    UserResponseDTO getUserByEmail(String email);
+    @Transactional(readOnly = true)
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::mapToUserResponse)
+                .collect(Collectors.toList());
+    }
 
-    /**
-     * Get user by username
-     */
-    UserResponseDTO getUserByUsername(String username);
+    @Transactional(readOnly = true)
+    public UserResponse getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return mapToUserResponse(user);
+    }
 
-    /**
-     * Update user
-     */
-    UserResponseDTO updateUser(String id, UserRequestDTO userRequestDTO);
+    public UserResponse updateUser(Long id, CreateUserRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-    /**
-     * Delete user
-     */
-    void deleteUser(String id);
+        // Check if email/username already exists for other users
+        if (!user.getEmail().equals(request.getEmail()) &&
+            userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+        if (!user.getFirstName().equals(request.getFirstName()) &&
+            userRepository.existsByUsername(request.getFirstName())) {
+            throw new RuntimeException("Username already exists");
+        }
 
-    /**
-     * Activate/Deactivate user
-     */
-    UserResponseDTO toggleUserStatus(String id);
+        user.setEmail(request.getEmail());
+        user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null && !request.getLastName().isEmpty()) {
+            user.setLastName(request.getLastName()); // Hash in real app
+        }
 
-    /**
-     * Update last login time
-     */
-    void updateLastLogin(String id);
+        User savedUser = userRepository.save(user);
+        return mapToUserResponse(savedUser);
+    }
 
-    /**
-     * Search users by name or email
-     */
-    List<UserResponseDTO> searchUsers(String searchTerm);
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new RuntimeException("User not found");
+        }
+        userRepository.deleteById(id);
+    }
+
+    private UserResponse mapToUserResponse(User user) {
+        UserResponse response = new UserResponse();
+        response.setId(user.getId());
+        response.setEmail(user.getEmail());
+        response.setFirstName(user.getFirstName());
+        response.setStatus(user.getStatus());
+        response.setCreatedAt(user.getCreatedAt());
+        response.setUpdatedAt(user.getUpdatedAt());
+        return response;
+    }
 }

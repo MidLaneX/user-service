@@ -16,12 +16,10 @@ public record TeamRequestDTO(
         @Size(max = 500, message = "Description must not exceed 500 characters")
         String description,
 
-        String departmentId,
-
         String teamLeadId,
 
         @NotNull(message = "Team type is required")
-        Team.TeamType type,
+        String Type,
 
         @Positive(message = "Max members must be positive")
         int maxMembers,
@@ -30,6 +28,9 @@ public record TeamRequestDTO(
 
         List<String> projectIds,
 
-        Team.TeamStatus status
+        String status
 ) {
+        public String type() {
+                return type();
+        }
 }

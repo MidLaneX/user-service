@@ -1,48 +1,79 @@
 package com.midlane.project_management_tool_user_service.model;
 
+import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.CreatedDate;
+import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Document(collection = "teams")
+@Entity
+@Table(name = "teams")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Team {
-    @Id
-    private String id;
 
-    @Indexed(unique = true)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "description")
     private String description;
-    private String departmentId;
+
+    @Column(name = "organization_id", nullable = false)
+    private Long organizationId;
+
+    @Column(name = "team_lead_id")
     private String teamLeadId;
 
-    // Team configuration
+    @Column(name = "managed_team_id")
+    private String managedTeamId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type")
     private TeamType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
     private TeamStatus status;
+
+    @Column(name = "max_members")
     private int maxMembers;
 
-    // Member relationships
+    @ElementCollection
+    @CollectionTable(name = "team_member_ids", joinColumns = @JoinColumn(name = "team_id"))
+    @Column(name = "member_id")
     private List<String> memberIds;
-    private List<String> projectIds;
 
-    // Timestamps
-    @CreatedDate
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    private String createdBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", insertable = false, updatable = false,
+                foreignKey = @ForeignKey(name = "fk_team_organization"))
+    private Organization organization;
+
+    // Business logic methods that TeamServiceImpl expects
+    public boolean hasAvailableSlots() {
+        return memberIds != null ? memberIds.size() < maxMembers : maxMembers > 0;
+    }
+
+    public int getCurrentMemberCount() {
+        return memberIds != null ? memberIds.size() : 0;
+    }
 
     // Enums for better type safety
     public enum TeamType {
@@ -51,14 +82,5 @@ public class Team {
 
     public enum TeamStatus {
         ACTIVE, INACTIVE, DISBANDED, PENDING
-    }
-
-    // Computed properties
-    public int getCurrentMemberCount() {
-        return memberIds != null ? memberIds.size() : 0;
-    }
-
-    public boolean hasAvailableSlots() {
-        return getCurrentMemberCount() < maxMembers;
     }
 }
