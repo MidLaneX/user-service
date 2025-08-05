@@ -1,13 +1,11 @@
 package com.midlane.project_management_tool_user_service.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record UserRequestDTO(
-        @NotBlank(message = "Email is required")
-        @Email(message = "Email should be valid")
-        String email,
+        @NotBlank(message = "username is required")
+        String username,
 
         @NotBlank(message = "First Name is required")
         @Size(min = 3, max = 50, message = "First Name must be between 3 and 50 characters")

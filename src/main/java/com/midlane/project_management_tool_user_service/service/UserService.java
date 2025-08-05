@@ -19,7 +19,7 @@ public class UserService {
     private final UserRepository userRepository;
 
     public UserResponse createUser(CreateUserRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Email already exists");
         }
         if (userRepository.existsByUsername(request.getFirstName())) {
@@ -27,7 +27,7 @@ public class UserService {
         }
 
         User user = new User();
-        user.setEmail(request.getEmail());
+        user.setUsername(request.getUsername());
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName()); // In real app, hash this password
         user.setStatus(User.UserStatus.ACTIVE);
@@ -55,8 +55,8 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Check if email/username already exists for other users
-        if (!user.getEmail().equals(request.getEmail()) &&
-            userRepository.existsByEmail(request.getEmail())) {
+        if (!user.getUsername().equals(request.getUsername()) &&
+            userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Email already exists");
         }
         if (!user.getFirstName().equals(request.getFirstName()) &&
@@ -64,7 +64,7 @@ public class UserService {
             throw new RuntimeException("Username already exists");
         }
 
-        user.setEmail(request.getEmail());
+        user.setUsername(request.getUsername());
         user.setFirstName(request.getFirstName());
         if (request.getLastName() != null && !request.getLastName().isEmpty()) {
             user.setLastName(request.getLastName()); // Hash in real app
@@ -84,7 +84,7 @@ public class UserService {
     private UserResponse mapToUserResponse(User user) {
         UserResponse response = new UserResponse();
         response.setId(user.getId());
-        response.setEmail(user.getEmail());
+        response.setEmail(user.getUsername());
         response.setFirstName(user.getFirstName());
         response.setStatus(user.getStatus());
         response.setCreatedAt(user.getCreatedAt());

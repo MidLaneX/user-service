@@ -67,7 +67,7 @@ public class ModelMapper {
 
     public User mapToUser(UserRequestDTO userRequestDTO) {
         User user = new User();
-        user.setEmail(userRequestDTO.email());
+        user.setUsername(userRequestDTO.username());
         return user;
     }
 
