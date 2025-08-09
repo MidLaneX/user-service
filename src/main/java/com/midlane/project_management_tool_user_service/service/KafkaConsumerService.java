@@ -12,9 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class UserEventService {
+public class KafkaConsumerService {
 
     private final UserRepository userRepository;
+    private final KafkaProducerService kafkaProducerService;
 
     @KafkaListener(topics = "user.added", containerFactory = "userEventListenerContainerFactory")
     @Transactional
@@ -46,6 +47,9 @@ public class UserEventService {
 
             User savedUser = userRepository.save(user);
             log.info("User created successfully with ID: {} for email: {}", savedUser.getId(), savedUser.getEmail());
+
+            // Publish confirmation event
+            kafkaProducerService.publishUserConfirmation(savedUser);
 
         } catch (Exception e) {
             log.error("Error processing user creation event: {}", e.getMessage());
