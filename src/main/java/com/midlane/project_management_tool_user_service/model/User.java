@@ -19,13 +19,16 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "username", unique = true, nullable = false)
-    private String username;
+    @Column(name = "auth_service_user_id", unique = true, nullable = false)
+    private Long authServiceUserId;
 
-    @Column(name = "first_name", nullable = false)
+    @Column(name = "email", unique = true, nullable = false)
+    private String email;
+
+    @Column(name = "first_name")
     private String firstName;
 
-    @Column(name = "last_name", nullable = false)
+    @Column(name = "last_name")
     private String lastName;
 
     @ElementCollection

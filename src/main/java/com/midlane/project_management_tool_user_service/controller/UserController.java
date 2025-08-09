@@ -1,6 +1,7 @@
 package com.midlane.project_management_tool_user_service.controller;
 
 import com.midlane.project_management_tool_user_service.dto.CreateUserRequest;
+import com.midlane.project_management_tool_user_service.dto.UpdateUserProfileRequest;
 import com.midlane.project_management_tool_user_service.dto.UserResponse;
 import com.midlane.project_management_tool_user_service.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -46,5 +47,31 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/email/{email}")
+    public ResponseEntity<UserResponse> getUserByEmail(@PathVariable String email) {
+        UserResponse user = userService.getUserByEmail(email);
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/auth-service-id/{authServiceUserId}")
+    public ResponseEntity<UserResponse> getUserByAuthServiceUserId(@PathVariable Long authServiceUserId) {
+        UserResponse user = userService.getUserByAuthServiceUserId(authServiceUserId);
+        return ResponseEntity.ok(user);
+    }
+
+    @PutMapping("/profile/{email}")
+    public ResponseEntity<UserResponse> updateUserProfile(
+            @PathVariable String email,
+            @Valid @RequestBody UpdateUserProfileRequest request) {
+        UserResponse response = userService.updateUserProfile(email, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/profile-complete/{email}")
+    public ResponseEntity<Boolean> isProfileComplete(@PathVariable String email) {
+        boolean isComplete = userService.isProfileComplete(email);
+        return ResponseEntity.ok(isComplete);
     }
 }

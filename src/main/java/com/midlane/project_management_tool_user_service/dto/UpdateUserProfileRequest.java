@@ -1,15 +1,15 @@
 package com.midlane.project_management_tool_user_service.dto;
 
-import lombok.Data;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
-public class CreateUserRequest {
-
-    @NotBlank(message = "Email is required")
-    @jakarta.validation.constraints.Email(message = "Email should be valid")
-    private String email;
+@NoArgsConstructor
+@AllArgsConstructor
+public class UpdateUserProfileRequest {
 
     @NotBlank(message = "First name is required")
     @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")

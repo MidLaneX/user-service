@@ -82,7 +82,7 @@ public class TeamMembershipService {
     private UserResponse mapToUserResponse(com.midlane.project_management_tool_user_service.model.User user) {
         UserResponse response = new UserResponse();
         response.setId(user.getId());
-        response.setEmail(user.getUsername());
+        response.setEmail(user.getEmail());
         response.setFirstName(user.getFirstName());
         response.setLastName(user.getLastName());
         response.setStatus(user.getStatus());

@@ -9,5 +9,11 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserRepository extends JpaRepository<User,Long> {
-    boolean existsByUsername(@NotBlank(message = "Username is required") @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters") String username);
+    boolean existsByEmail(String email);
+
+    boolean existsByAuthServiceUserId(Long authServiceUserId);
+
+    User findByEmail(String email);
+
+    User findByAuthServiceUserId(Long authServiceUserId);
 }

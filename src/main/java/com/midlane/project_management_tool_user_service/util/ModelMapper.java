@@ -67,13 +67,17 @@ public class ModelMapper {
 
     public User mapToUser(UserRequestDTO userRequestDTO) {
         User user = new User();
-        user.setUsername(userRequestDTO.username());
+        user.setEmail(userRequestDTO.email());
+        user.setFirstName(userRequestDTO.firstName());
+        user.setLastName(userRequestDTO.lastName());
+        user.setStatus(User.UserStatus.ACTIVE);
         return user;
     }
 
     public UserResponseDTO mapToUserResponseDTO(User user) {
         return new UserResponseDTO(
             user.getId(),
+            user.getEmail(),
             user.getFirstName(),
             user.getLastName(),
             user.getStatus() != null ? user.getStatus().name() : null,
