@@ -1,6 +1,7 @@
 package com.midlane.project_management_tool_user_service.service;
 
 import com.midlane.project_management_tool_user_service.dto.CreateUserRequest;
+import com.midlane.project_management_tool_user_service.dto.MeResponse;
 import com.midlane.project_management_tool_user_service.dto.UpdateUserProfileRequest;
 import com.midlane.project_management_tool_user_service.dto.UserResponse;
 import com.midlane.project_management_tool_user_service.model.User;
@@ -142,5 +143,21 @@ public class UserService {
         response.setCreatedAt(user.getCreatedAt());
         response.setUpdatedAt(user.getUpdatedAt());
         return response;
+    }
+
+    public MeResponse getCurrentUserProfile(String email) {
+        User user = userRepository.findByEmail(email);
+        if (user == null) {
+            throw new RuntimeException("User not found with email: " + email);
+        }
+
+        MeResponse meResponse = new MeResponse();
+        meResponse.setFirstName(user.getFirstName());
+        meResponse.setLastName(user.getLastName());
+        meResponse.setEmail(user.getEmail());
+        // Assuming profile picture URL is stored in the User model
+        meResponse.setProfilePictureUrl("user.getProfilePictureUrl()");
+
+        return meResponse;
     }
 }

@@ -12,7 +12,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/organizations")
+@RequestMapping("/api/users/organizations")
 @RequiredArgsConstructor
 public class OrganizationController {
 

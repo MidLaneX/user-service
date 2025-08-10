@@ -1,6 +1,7 @@
 package com.midlane.project_management_tool_user_service.controller;
 
 import com.midlane.project_management_tool_user_service.dto.CreateUserRequest;
+import com.midlane.project_management_tool_user_service.dto.MeResponse;
 import com.midlane.project_management_tool_user_service.dto.UpdateUserProfileRequest;
 import com.midlane.project_management_tool_user_service.dto.UserResponse;
 import com.midlane.project_management_tool_user_service.service.UserService;
@@ -13,7 +14,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping("/api/users/single")
 @RequiredArgsConstructor
 public class UserController {
 
@@ -35,6 +36,12 @@ public class UserController {
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         UserResponse user = userService.getUserById(id);
         return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/me/{email}")
+    public ResponseEntity<MeResponse>  getCurrentUserProfile(@PathVariable String email) {
+        MeResponse meResponse = userService.getCurrentUserProfile(email);
+        return ResponseEntity.ok(meResponse);
     }
 
     @PutMapping("/{id}")

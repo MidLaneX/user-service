@@ -12,7 +12,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/teams/{teamId}/members")
+@RequestMapping("/api/users/teams/{teamId}/members")
 @RequiredArgsConstructor
 public class TeamMembershipController {
 
