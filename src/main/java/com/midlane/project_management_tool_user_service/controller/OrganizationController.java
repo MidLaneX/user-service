@@ -41,14 +41,35 @@ public class OrganizationController {
     @PutMapping("/{id}")
     public ResponseEntity<OrganizationResponse> updateOrganization(
             @PathVariable Long id,
-            @Valid @RequestBody CreateOrganizationRequest request) {
-        OrganizationResponse response = organizationService.updateOrganization(id, request);
+            @Valid @RequestBody CreateOrganizationRequest request,
+            @RequestParam Long requesterId) {
+        OrganizationResponse response = organizationService.updateOrganization(id, request, requesterId);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteOrganization(@PathVariable Long id) {
-        organizationService.deleteOrganization(id);
+    public ResponseEntity<Void> deleteOrganization(
+            @PathVariable Long id,
+            @RequestParam Long requesterId) {
+        organizationService.deleteOrganization(id, requesterId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{organizationId}/members/{userId}")
+    public ResponseEntity<Void> addMember(
+            @PathVariable Long organizationId,
+            @PathVariable Long userId,
+            @RequestParam Long requesterId) {
+        organizationService.addMember(organizationId, userId, requesterId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{organizationId}/members/{userId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable Long organizationId,
+            @PathVariable Long userId,
+            @RequestParam Long requesterId) {
+        organizationService.removeMember(organizationId, userId, requesterId);
         return ResponseEntity.noContent().build();
     }
 }

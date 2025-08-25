@@ -1,22 +1,27 @@
 package com.midlane.project_management_tool_user_service.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.springframework.data.annotation.LastModifiedDate;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "teams")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
+@EqualsAndHashCode(exclude = {"members"})
+@ToString(exclude = {"members"})
 public class Team {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "team_id")
     private Long id;
 
     @Column(name = "name", nullable = false)
@@ -25,59 +30,94 @@ public class Team {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
-
-    @Column(name = "team_lead_id")
-    private String teamLeadId;
-
-    @Column(name = "managed_team_id")
-    private String managedTeamId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "team_type")
+    @Builder.Default
+    private TeamType teamType = TeamType.DEVELOPMENT;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type")
-    private TeamType type;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private TeamStatus status;
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private TeamStatus status = TeamStatus.ACTIVE;
 
     @Column(name = "max_members")
-    private int maxMembers;
+    @Builder.Default
+    private Integer maxMembers = 10;
 
-    @ElementCollection
-    @CollectionTable(name = "team_member_ids", joinColumns = @JoinColumn(name = "team_id"))
-    @Column(name = "member_id")
-    private List<String> memberIds;
+    // Belongs to an organization
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
-    @Column(name = "created_by")
-    private String createdBy;
+    // Team lead/manager (optional)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_lead_id")
+    private User teamLead;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @LastModifiedDate
-    @Column(name = "updated_at")
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organization_id", insertable = false, updatable = false,
-                foreignKey = @ForeignKey(name = "fk_team_organization"))
-    private Organization organization;
+    // Many-to-many relationship with users (team members)
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "team_members",
+        joinColumns = @JoinColumn(name = "team_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id"),
+        uniqueConstraints = @UniqueConstraint(columnNames = {"team_id", "user_id"})
+    )
+    @Builder.Default
+    private Set<User> members = new HashSet<>();
 
-    // Business logic methods that TeamServiceImpl expects
+    // Business methods
+    public void addMember(User user) {
+        if (hasAvailableSlots()) {
+            members.add(user);
+            user.getTeams().add(this);
+        } else {
+            throw new IllegalStateException("Team has reached maximum capacity");
+        }
+    }
+
+    public void removeMember(User user) {
+        members.remove(user);
+        user.getTeams().remove(this);
+
+        // If removed user was team lead, clear the lead
+        if (teamLead != null && teamLead.equals(user)) {
+            teamLead = null;
+        }
+    }
+
+    public void setTeamLead(User user) {
+        if (!members.contains(user)) {
+            throw new IllegalArgumentException("Team lead must be a member of the team");
+        }
+        this.teamLead = user;
+    }
+
     public boolean hasAvailableSlots() {
-        return memberIds != null ? memberIds.size() < maxMembers : maxMembers > 0;
+        return members.size() < maxMembers;
     }
 
     public int getCurrentMemberCount() {
-        return memberIds != null ? memberIds.size() : 0;
+        return members.size();
     }
 
-    // Enums for better type safety
+    public boolean isTeamLead(User user) {
+        return teamLead != null && teamLead.equals(user);
+    }
+
+    public boolean isMember(User user) {
+        return members.contains(user);
+    }
+
     public enum TeamType {
-        DEVELOPMENT, DESIGN, MARKETING, SALES, SUPPORT, MANAGEMENT, QA, DEVOPS
+        DEVELOPMENT, DESIGN, MARKETING, SALES, SUPPORT, MANAGEMENT, QA, DEVOPS, RESEARCH
     }
 
     public enum TeamStatus {

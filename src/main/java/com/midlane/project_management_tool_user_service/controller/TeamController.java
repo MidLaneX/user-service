@@ -12,7 +12,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/users/organizations/{orgId}/teams")
+@RequestMapping("/api/users/teams")
 @RequiredArgsConstructor
 public class TeamController {
 
@@ -20,35 +20,65 @@ public class TeamController {
 
     @PostMapping
     public ResponseEntity<TeamResponse> createTeam(
-            @PathVariable Long orgId,
-            @Valid @RequestBody CreateTeamRequest request) {
-        TeamResponse response = teamService.createTeam(orgId, request);
+            @Valid @RequestBody CreateTeamRequest request,
+            @RequestParam Long creatorId) {
+        TeamResponse response = teamService.createTeam(request, creatorId);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<TeamResponse>> getTeamsByOrganization(@PathVariable Long orgId) {
-        List<TeamResponse> teams = teamService.getTeamsByOrganization(orgId);
+    public ResponseEntity<List<TeamResponse>> getAllTeams() {
+        List<TeamResponse> teams = teamService.getAllTeams();
         return ResponseEntity.ok(teams);
     }
 
-    @GetMapping("/{teamId}")
-    public ResponseEntity<TeamResponse> getTeamById(@PathVariable Long teamId) {
-        TeamResponse team = teamService.getTeamById(teamId);
+    @GetMapping("/{id}")
+    public ResponseEntity<TeamResponse> getTeamById(@PathVariable Long id) {
+        TeamResponse team = teamService.getTeamById(id);
         return ResponseEntity.ok(team);
     }
 
-    @PutMapping("/{teamId}")
+    @PutMapping("/{id}")
     public ResponseEntity<TeamResponse> updateTeam(
-            @PathVariable Long teamId,
-            @Valid @RequestBody CreateTeamRequest request) {
-        TeamResponse response = teamService.updateTeam(teamId, request);
+            @PathVariable Long id,
+            @Valid @RequestBody CreateTeamRequest request,
+            @RequestParam Long requesterId) {
+        TeamResponse response = teamService.updateTeam(id, request, requesterId);
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/{teamId}")
-    public ResponseEntity<Void> deleteTeam(@PathVariable Long teamId) {
-        teamService.deleteTeam(teamId);
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTeam(
+            @PathVariable Long id,
+            @RequestParam Long requesterId) {
+        teamService.deleteTeam(id, requesterId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{teamId}/members/{userId}")
+    public ResponseEntity<Void> addMember(
+            @PathVariable Long teamId,
+            @PathVariable Long userId,
+            @RequestParam Long requesterId) {
+        teamService.addMember(teamId, userId, requesterId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{teamId}/members/{userId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable Long teamId,
+            @PathVariable Long userId,
+            @RequestParam Long requesterId) {
+        teamService.removeMember(teamId, userId, requesterId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{teamId}/lead/{userId}")
+    public ResponseEntity<Void> setTeamLead(
+            @PathVariable Long teamId,
+            @PathVariable Long userId,
+            @RequestParam Long requesterId) {
+        teamService.setTeamLead(teamId, userId, requesterId);
+        return ResponseEntity.ok().build();
     }
 }

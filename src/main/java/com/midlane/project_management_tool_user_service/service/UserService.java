@@ -1,163 +1,323 @@
 package com.midlane.project_management_tool_user_service.service;
 
-import com.midlane.project_management_tool_user_service.dto.CreateUserRequest;
-import com.midlane.project_management_tool_user_service.dto.MeResponse;
-import com.midlane.project_management_tool_user_service.dto.UpdateUserProfileRequest;
-import com.midlane.project_management_tool_user_service.dto.UserResponse;
+import com.midlane.project_management_tool_user_service.dto.*;
+import com.midlane.project_management_tool_user_service.model.AuthProvider;
+import com.midlane.project_management_tool_user_service.model.RefreshToken;
+import com.midlane.project_management_tool_user_service.model.Role;
 import com.midlane.project_management_tool_user_service.model.User;
 import com.midlane.project_management_tool_user_service.repository.UserRepository;
+import com.midlane.project_management_tool_user_service.repository.RoleRepository;
+import com.midlane.project_management_tool_user_service.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final AuthenticationManager authenticationManager;
+    private final CustomUserDetailsService userDetailsService;
+    private final RefreshTokenService refreshTokenService;
+    private final SocialAuthService socialAuthService;
 
-    public UserResponse createUser(CreateUserRequest request) {
+    @Value("${jwt.access-token.expiration}") // 15 minutes
+    private long accessTokenExpiration;
+
+    public AuthResponse registerUser(RegisterRequest request, String deviceInfo) {
+        // Check if email already exists
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new RuntimeException("Email is already in use");
         }
 
+        // Get or create default USER role
+        Role userRole = roleRepository.findByName(Role.USER)
+                .orElseGet(() -> {
+                    Role newRole = Role.builder()
+                            .name(Role.USER)
+                            .permissions("USER_PERMISSIONS")
+                            .build();
+                    return roleRepository.save(newRole);
+                });
+
+        // Create new user
         User user = new User();
         user.setEmail(request.getEmail());
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName()); // In real app, hash this password
-        user.setStatus(User.UserStatus.ACTIVE);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setPhone(request.getPhone());
+        user.setRole(userRole); // Set Role entity
+        user.setPasswordLastChanged(LocalDateTime.now());
+        user.setEmailLastChanged(LocalDateTime.now());
 
         User savedUser = userRepository.save(user);
-        return mapToUserResponse(savedUser);
+
+        // Log user registration
+        log.info("User registered successfully: userId={}, email={}", savedUser.getId(), savedUser.getEmail());
+
+
+        // Generate tokens using RSA
+        UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
+        String accessToken = jwtUtil.generateAccessToken(userDetails);
+
+        // Create refresh token
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails, deviceInfo);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getToken())
+                .tokenType("Bearer")
+                .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+                .userEmail(savedUser.getEmail())
+                .role(savedUser.getRole().getName())
+                .build();
     }
 
-    @Transactional(readOnly = true)
-    public List<UserResponse> getAllUsers() {
+    public AuthResponse loginUser(LoginRequest request, String deviceInfo) {
+        try {
+            // Use the properly configured AuthenticationManager
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+
+            // Find User by email to get userId and role
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Generate tokens using RSA
+            UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
+            String accessToken = jwtUtil.generateAccessToken(userDetails);
+
+            // Create refresh token
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails, deviceInfo);
+
+            return AuthResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken.getToken())
+                    .tokenType("Bearer")
+                    .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+                    .userEmail(user.getEmail())
+                    .role(user.getRole().getName())
+                    .build();
+
+        } catch (AuthenticationException ex) {
+            throw new BadCredentialsException("Invalid email or password");
+        }
+    }
+
+    @Transactional
+    public RefreshTokenResponse refreshAccessToken(RefreshTokenRequest request) {
+        RefreshToken refreshToken = refreshTokenService.findByToken(request.getRefreshToken())
+                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+
+        refreshToken = refreshTokenService.verifyExpiration(refreshToken);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(refreshToken.getUserEmail());
+        String newAccessToken = jwtUtil.generateAccessToken(userDetails);
+
+        return RefreshTokenResponse.builder()
+                .accessToken(newAccessToken)
+                .tokenType("Bearer")
+                .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+                .build();
+    }
+
+    public List<UserDTO> getAllUsers() {
         return userRepository.findAll().stream()
-                .map(this::mapToUserResponse)
+                .map(this::mapToUserDTO)
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
-    public UserResponse getUserById(Long id) {
-        User user = userRepository.findById(id)
+    private UserDTO mapToUserDTO(User user) {
+        return UserDTO.builder()
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    @Transactional
+    public void resetPassword(Long userId, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        // Encode the new password
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setPasswordLastChanged(LocalDateTime.now());
+
+        // Save the updated user
+        userRepository.save(user);
+
+        // Log user update instead of publishing to Kafka
+        log.info("User password reset: userId={}, email={}", user.getId(), user.getEmail());
+
+        // Revoke all refresh tokens for security after password change
+        refreshTokenService.revokeAllUserTokens(user.getEmail());
+    }
+
+    @Transactional
+    public void changePassword(String userEmail, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return mapToUserResponse(user);
-    }
 
-    public UserResponse updateUser(Long id, CreateUserRequest request) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Check if email/username already exists for other users
-        if (!user.getEmail().equals(request.getEmail()) &&
-            userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+        // Verify current password
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new RuntimeException("Current password is incorrect");
         }
 
-        user.setEmail(request.getEmail());
-        user.setFirstName(request.getFirstName());
-        if (request.getLastName() != null && !request.getLastName().isEmpty()) {
-            user.setLastName(request.getLastName()); // Hash in real app
-        }
+        // Update password
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setPasswordLastChanged(LocalDateTime.now());
 
-        User savedUser = userRepository.save(user);
-        return mapToUserResponse(savedUser);
+        // Save the updated user
+        userRepository.save(user);
+
+        // Log user update instead of publishing to Kafka
+        log.info("User password changed: userId={}, email={}", user.getId(), user.getEmail());
+
+        // Revoke all refresh tokens for security after password change
+        refreshTokenService.revokeAllUserTokens(user.getEmail());
     }
 
-    public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found");
-        }
-        userRepository.deleteById(id);
+    @Transactional
+    public void updateUserRole(Long userId, Role newRole) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        user.setRole(newRole);
+
+        // Save the updated user
+        userRepository.save(user);
+
+        // Log user update instead of publishing to Kafka
+        log.info("User role updated: userId={}, email={}, newRole={}", user.getId(), user.getEmail(), newRole.getName());
+
+        // Revoke all refresh tokens when role changes for security
+        // This forces the user to log in again to get tokens with updated role claims
+        refreshTokenService.revokeAllUserTokens(user.getEmail());
     }
 
-    /**
-     * Update user profile - typically called after user registration through auth service
-     * to complete the profile with first name and last name
-     */
-    public UserResponse updateUserProfile(String email, UpdateUserProfileRequest request) {
-        User user = userRepository.findByEmail(email);
-        if (user == null) {
-            throw new RuntimeException("User not found with email: " + email);
-        }
+    @Transactional
+    public void deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setStatus(User.UserStatus.ACTIVE); // Activate user after profile completion
-        user.setUpdatedAt(LocalDateTime.now());
+        // Log user deletion instead of publishing to Kafka
+        log.info("User deleted: userId={}, email={}", user.getId(), user.getEmail());
 
-        User savedUser = userRepository.save(user);
-        return mapToUserResponse(savedUser);
+        // Revoke all refresh tokens
+        refreshTokenService.revokeAllUserTokens(user.getEmail());
+
+        // Delete user
+        userRepository.delete(user);
     }
 
-    /**
-     * Get user by email - useful for profile completion flow
-     */
-    @Transactional(readOnly = true)
-    public UserResponse getUserByEmail(String email) {
-        User user = userRepository.findByEmail(email);
-        if (user == null) {
-            throw new RuntimeException("User not found with email: " + email);
-        }
-        return mapToUserResponse(user);
+    public User findById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
     }
 
-    /**
-     * Get user by auth service user ID
-     */
-    @Transactional(readOnly = true)
-    public UserResponse getUserByAuthServiceUserId(Long authServiceUserId) {
-        User user = userRepository.findByAuthServiceUserId(authServiceUserId);
-        if (user == null) {
-            throw new RuntimeException("User not found with auth service user ID: " + authServiceUserId);
-        }
-        return mapToUserResponse(user);
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
     }
 
-    /**
-     * Check if user profile is complete (has first name and last name)
-     */
-    @Transactional(readOnly = true)
-    public boolean isProfileComplete(String email) {
-        User user = userRepository.findByEmail(email);
-        if (user == null) {
-            return false;
-        }
-        return user.getFirstName() != null && user.getLastName() != null;
-    }
+    public AuthResponse authenticateWithSocial(SocialLoginRequest request) {
+        // Get user info from social provider
+        SocialUserInfo socialUserInfo = socialAuthService.getUserInfo(request.getProvider(), request.getAccessToken());
 
-    private UserResponse mapToUserResponse(User user) {
-        UserResponse response = new UserResponse();
-        response.setId(user.getId());
-        response.setAuthServiceUserId(user.getAuthServiceUserId()); // Added auth service user ID
-        response.setEmail(user.getEmail());
-        response.setFirstName(user.getFirstName());
-        response.setLastName(user.getLastName());
-        response.setStatus(user.getStatus());
-        response.setCreatedAt(user.getCreatedAt());
-        response.setUpdatedAt(user.getUpdatedAt());
-        return response;
-    }
-
-    public MeResponse getCurrentUserProfile(String email) {
-        User user = userRepository.findByEmail(email);
-        if (user == null) {
-            throw new RuntimeException("User not found with email: " + email);
+        if (socialUserInfo.getEmail() == null || socialUserInfo.getEmail().isEmpty()) {
+            throw new RuntimeException("Email not provided by " + request.getProvider() + " provider");
         }
 
-        MeResponse meResponse = new MeResponse();
-        meResponse.setFirstName(user.getFirstName());
-        meResponse.setLastName(user.getLastName());
-        meResponse.setEmail(user.getEmail());
-        // Assuming profile picture URL is stored in the User model
-        meResponse.setProfilePictureUrl("user.getProfilePictureUrl()");
+        // Check if user exists by email
+        Optional<User> existingUser = userRepository.findByEmail(socialUserInfo.getEmail());
 
-        return meResponse;
+        User user;
+        boolean isNewUser = false;
+
+        if (existingUser.isPresent()) {
+            user = existingUser.get();
+            // Update social provider info if it's a local account being linked
+            if (user.getProvider() == AuthProvider.LOCAL) {
+                user.setProvider(AuthProvider.valueOf(socialUserInfo.getProvider().toUpperCase()));
+                user.setProviderId(socialUserInfo.getId());
+                user.setFirstName(socialUserInfo.getFirstName());
+                user.setLastName(socialUserInfo.getLastName());
+                user.setProfilePictureUrl(socialUserInfo.getProfilePictureUrl());
+                userRepository.save(user);
+                
+                // Log user update instead of publishing to Kafka
+                log.info("User social info updated: userId={}, email={}", user.getId(), user.getEmail());
+            }
+        } else {
+            // Create new user from social login
+            user = createUserFromSocialInfo(socialUserInfo);
+            isNewUser = true;
+            
+            // Log user creation instead of publishing to Kafka
+            log.info("New user created from social login: userId={}, email={}", user.getId(), user.getEmail());
+        }
+
+        // Generate RSA-based tokens
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String accessToken = jwtUtil.generateAccessToken(userDetails);
+
+        // Create refresh token with default device info for social login
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails, "Social Login - " + request.getProvider());
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getToken())
+                .tokenType("Bearer")
+                .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+                .userEmail(user.getEmail())
+                .role(user.getRole().getName())
+                .build();
+    }
+
+    private User createUserFromSocialInfo(SocialUserInfo socialUserInfo) {
+        // Get or create default USER role
+        Role userRole = roleRepository.findByName(Role.USER)
+                .orElseGet(() -> {
+                    Role newRole = Role.builder()
+                            .name(Role.USER)
+                            .permissions("USER_PERMISSIONS")
+                            .build();
+                    return roleRepository.save(newRole);
+                });
+
+        User user = new User();
+        user.setEmail(socialUserInfo.getEmail());
+        user.setFirstName(socialUserInfo.getFirstName());
+        user.setLastName(socialUserInfo.getLastName());
+        user.setProfilePictureUrl(socialUserInfo.getProfilePictureUrl());
+        user.setProvider(AuthProvider.valueOf(socialUserInfo.getProvider().toUpperCase()));
+        user.setProviderId(socialUserInfo.getId());
+        user.setPasswordHash(null); // No password for social login
+        user.setRole(userRole); // Use Role entity instead of Role.USER
+        user.setEmailLastChanged(LocalDateTime.now());
+
+        return userRepository.save(user);
     }
 }

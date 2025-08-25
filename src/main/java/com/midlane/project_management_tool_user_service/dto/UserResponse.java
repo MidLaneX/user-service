@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 @Data
 public class UserResponse {
     private Long id;
-    private Long authServiceUserId; // Changed from String to Long
     private String email;
     private String firstName;
     private String lastName;
