@@ -1,5 +1,7 @@
 package com.midlane.project_management_tool_user_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +15,7 @@ import jakarta.validation.constraints.Max;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CreateTeamRequest {
 
     @NotBlank(message = "Team name is required")
@@ -22,11 +25,14 @@ public class CreateTeamRequest {
     @Size(max = 500, message = "Description cannot exceed 500 characters")
     private String description;
 
+    @JsonProperty("teamType")
     private String teamType;
 
+    @JsonProperty("maxMembers")
     @Min(value = 1, message = "Maximum members must be at least 1")
     @Max(value = 100, message = "Maximum members cannot exceed 100")
     private Integer maxMembers;
 
+    @JsonProperty("organizationId")
     private Long organizationId;
 }

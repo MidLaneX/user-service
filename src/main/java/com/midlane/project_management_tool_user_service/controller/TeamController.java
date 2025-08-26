@@ -4,6 +4,7 @@ import com.midlane.project_management_tool_user_service.dto.CreateTeamRequest;
 import com.midlane.project_management_tool_user_service.dto.TeamResponse;
 import com.midlane.project_management_tool_user_service.service.TeamService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users/teams")
 @RequiredArgsConstructor
@@ -22,6 +24,7 @@ public class TeamController {
     public ResponseEntity<TeamResponse> createTeam(
             @Valid @RequestBody CreateTeamRequest request,
             @RequestParam Long creatorId) {
+        System.out.println("Creating team with request: " + request + " by user ID: " + creatorId);
         TeamResponse response = teamService.createTeam(request, creatorId);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
