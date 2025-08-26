@@ -2,6 +2,8 @@ package com.midlane.project_management_tool_user_service.service;
 
 import com.midlane.project_management_tool_user_service.dto.CreateOrganizationRequest;
 import com.midlane.project_management_tool_user_service.dto.OrganizationResponse;
+import com.midlane.project_management_tool_user_service.dto.OrganizationMemberResponse;
+import com.midlane.project_management_tool_user_service.dto.OrganizationTeamResponse;
 import com.midlane.project_management_tool_user_service.model.Organization;
 import com.midlane.project_management_tool_user_service.model.User;
 import com.midlane.project_management_tool_user_service.repository.OrganizationRepository;
@@ -191,5 +193,34 @@ public class OrganizationService {
                 .memberCount(organization.getMembers().size())
                 .teamCount(organization.getTeams().size())
                 .build();
+    }
+
+    public List<OrganizationMemberResponse> getOrganizationMembers(Long organizationId) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+
+        return organization.getMembers().stream()
+                .map(user -> OrganizationMemberResponse.builder()
+                        .userId(user.getUserId())
+                        .firstName(user.getFirstName())
+                        .lastName(user.getLastName())
+                        .email(user.getEmail())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<OrganizationTeamResponse> getOrganizationTeams(Long organizationId) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+
+        return organization.getTeams().stream()
+                .map(team -> OrganizationTeamResponse.builder()
+                        .teamId(team.getId())
+                        .teamName(team.getName())
+                        .teamType(team.getTeamType().toString())
+                        .description(team.getDescription())
+                        .memberCount(team.getMembers().size())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
     }
 }

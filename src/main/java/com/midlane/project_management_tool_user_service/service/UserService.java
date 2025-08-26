@@ -86,6 +86,7 @@ public class UserService {
                 .refreshToken(refreshToken.getToken())
                 .tokenType("Bearer")
                 .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+                .userId(savedUser.getUserId()) // Include userId for frontend
                 .userEmail(savedUser.getEmail())
                 .role(savedUser.getRole().getName())
                 .build();
@@ -114,6 +115,7 @@ public class UserService {
                     .refreshToken(refreshToken.getToken())
                     .tokenType("Bearer")
                     .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+                    .userId(user.getUserId()) // Include userId for frontend
                     .userEmail(user.getEmail())
                     .role(user.getRole().getName())
                     .build();
@@ -291,6 +293,7 @@ public class UserService {
                 .refreshToken(refreshToken.getToken())
                 .tokenType("Bearer")
                 .expiresIn(accessTokenExpiration / 1000) // Convert to seconds
+                .userId(user.getUserId()) // Include userId for frontend
                 .userEmail(user.getEmail())
                 .role(user.getRole().getName())
                 .build();
