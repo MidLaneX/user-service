@@ -153,6 +153,10 @@ public class UserService {
                 .userId(user.getUserId())
                 .email(user.getEmail())
                 .phone(user.getPhone())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .jobTitle(user.getJobTitle())
+                .department(user.getDepartment())
                 .role(user.getRole())
                 .createdAt(user.getCreatedAt())
                 .build();
@@ -322,5 +326,41 @@ public class UserService {
         user.setEmailLastChanged(LocalDateTime.now());
 
         return userRepository.save(user);
+    }
+
+    @Transactional
+    public UserDTO updateUserProfile(Long userId, UpdateUserProfileRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        // Update only the fields that are provided (not null)
+        if (request.getFirstName() != null) {
+            user.setFirstName(request.getFirstName());
+        }
+        if (request.getLastName() != null) {
+            user.setLastName(request.getLastName());
+        }
+        if (request.getJobTitle() != null) {
+            user.setJobTitle(request.getJobTitle());
+        }
+        if (request.getDepartment() != null) {
+            user.setDepartment(request.getDepartment());
+        }
+
+        // Save the updated user
+        User savedUser = userRepository.save(user);
+
+        // Log user profile update
+        log.info("User profile updated: userId={}, email={}", user.getId(), user.getEmail());
+
+        return mapToUserDTO(savedUser);
+    }
+
+    @Transactional(readOnly = true)
+    public UserDTO getUserProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        return mapToUserDTO(user);
     }
 }

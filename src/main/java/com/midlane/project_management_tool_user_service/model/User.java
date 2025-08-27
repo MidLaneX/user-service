@@ -77,6 +77,12 @@ public class User {
     @Column(name = "profile_picture_url")
     private String profilePictureUrl;
 
+    @Column(name = "job_title")
+    private String jobTitle;
+
+    @Column(name = "department")
+    private String department;
+
     // Organizations owned by this user
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default

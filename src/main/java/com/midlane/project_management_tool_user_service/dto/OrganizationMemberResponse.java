@@ -14,4 +14,6 @@ public class OrganizationMemberResponse {
     private String firstName;
     private String lastName;
     private String email;
+    private String jobTitle;
+    private String department;
 }

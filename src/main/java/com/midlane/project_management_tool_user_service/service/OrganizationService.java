@@ -205,6 +205,8 @@ public class OrganizationService {
                         .firstName(user.getFirstName())
                         .lastName(user.getLastName())
                         .email(user.getEmail())
+                        .jobTitle(user.getJobTitle())
+                        .department(user.getDepartment())
                         .build())
                 .collect(java.util.stream.Collectors.toList());
     }
