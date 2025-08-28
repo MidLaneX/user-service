@@ -25,8 +25,8 @@ RUN ./mvnw clean package -DskipTests -B
 # Production stage
 FROM eclipse-temurin:21-jre-alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install wget for health checks
+RUN apk add --no-cache wget
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S spring && adduser -u 1001 -S spring -G spring
@@ -48,7 +48,7 @@ EXPOSE 8082
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8082/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8082/actuator/health || exit 1
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
