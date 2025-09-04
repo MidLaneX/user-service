@@ -3,6 +3,8 @@ target/
 *.jar
 *.war
 
+src/main/resources/.env
+
 # Exclude IDE files
 .idea/
 .vscode/
