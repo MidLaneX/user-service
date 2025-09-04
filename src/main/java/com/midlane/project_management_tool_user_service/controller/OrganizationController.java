@@ -50,6 +50,13 @@ public class OrganizationController {
         return ResponseEntity.ok(response);
     }
 
+    // NEW: Get teams for organization (for project service dropdown)
+    @GetMapping("/{id}/teams")
+    public ResponseEntity<List<OrganizationTeamResponse>> getTeamsByOrganization(@PathVariable Long id) {
+        List<OrganizationTeamResponse> teams = organizationService.getTeamsByOrganization(id);
+        return ResponseEntity.ok(teams);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOrganization(
             @PathVariable Long id,
@@ -58,21 +65,21 @@ public class OrganizationController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{organizationId}/members/{userId}")
+    @PostMapping("/{id}/members/{userId}")
     public ResponseEntity<Void> addMember(
-            @PathVariable Long organizationId,
+            @PathVariable Long id,
             @PathVariable Long userId,
             @RequestParam Long requesterId) {
-        organizationService.addMember(organizationId, userId, requesterId);
+        organizationService.addMember(id, userId, requesterId);
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{organizationId}/members/{userId}")
+    @DeleteMapping("/{id}/members/{userId}")
     public ResponseEntity<Void> removeMember(
-            @PathVariable Long organizationId,
+            @PathVariable Long id,
             @PathVariable Long userId,
             @RequestParam Long requesterId) {
-        organizationService.removeMember(organizationId, userId, requesterId);
+        organizationService.removeMember(id, userId, requesterId);
         return ResponseEntity.noContent().build();
     }
 
@@ -91,9 +98,9 @@ public class OrganizationController {
         return ResponseEntity.ok(members);
     }
 
-    @GetMapping("/{organizationId}/teams")
-    public ResponseEntity<List<OrganizationTeamResponse>> getOrganizationTeams(@PathVariable Long organizationId) {
-        List<OrganizationTeamResponse> teams = organizationService.getOrganizationTeams(organizationId);
+    @GetMapping("/{id}/teams-detailed")
+    public ResponseEntity<List<OrganizationTeamResponse>> getOrganizationTeams(@PathVariable Long id) {
+        List<OrganizationTeamResponse> teams = organizationService.getOrganizationTeams(id);
         return ResponseEntity.ok(teams);
     }
 

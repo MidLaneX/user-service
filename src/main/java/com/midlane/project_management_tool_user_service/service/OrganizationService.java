@@ -225,4 +225,9 @@ public class OrganizationService {
                         .build())
                 .collect(java.util.stream.Collectors.toList());
     }
+
+    // NEW: Method for project service to get teams for dropdown
+    public List<OrganizationTeamResponse> getTeamsByOrganization(Long organizationId) {
+        return getOrganizationTeams(organizationId);
+    }
 }
