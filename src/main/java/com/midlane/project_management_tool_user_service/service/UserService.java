@@ -363,4 +363,18 @@ public class UserService {
 
         return mapToUserDTO(user);
     }
+
+    @Transactional(readOnly = true)
+    public MeResponse getCurrentUserInfo(Long useId) {
+        User user = userRepository.findById(useId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + useId));
+
+        MeResponse response = new MeResponse();
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setEmail(user.getEmail());
+        response.setProfilePictureUrl(user.getProfilePictureUrl());
+
+        return response;
+    }
 }

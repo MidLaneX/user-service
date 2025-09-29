@@ -114,6 +114,12 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/{userId}/me")
+    public ResponseEntity<MeResponse> getCurrentUser(@PathVariable Long userId) {
+        MeResponse response = userService.getCurrentUserInfo(userId);
+        return ResponseEntity.ok(response);
+    }
+
     private String extractDeviceInfo(HttpServletRequest request) {
         String userAgent = request.getHeader("User-Agent");
         String remoteAddr = request.getRemoteAddr();
