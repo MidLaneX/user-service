@@ -39,6 +39,7 @@ public class UserService {
     private final CustomUserDetailsService userDetailsService;
     private final RefreshTokenService refreshTokenService;
     private final SocialAuthService socialAuthService;
+    private final NotificationService notificationService; // Add NotificationService
 
     @Value("${jwt.access-token.expiration}") // 15 minutes
     private long accessTokenExpiration;
@@ -73,6 +74,18 @@ public class UserService {
         // Log user registration
         log.info("User registered successfully: userId={}, email={}", savedUser.getId(), savedUser.getEmail());
 
+        // Send welcome notification
+        try {
+            notificationService.sendWelcomeNotification(
+                    savedUser.getEmail(),
+                    savedUser.getFirstName(),
+                    savedUser.getLastName(),
+                    savedUser.getRole().getName()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send welcome notification for user: {}", savedUser.getEmail(), e);
+            // Don't fail the registration if notification fails
+        }
 
         // Generate tokens using RSA
         UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
@@ -283,6 +296,19 @@ public class UserService {
             
             // Log user creation instead of publishing to Kafka
             log.info("New user created from social login: userId={}, email={}", user.getId(), user.getEmail());
+
+            // Send welcome notification for new social login users
+            try {
+                notificationService.sendWelcomeNotification(
+                        user.getEmail(),
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getRole().getName()
+                );
+            } catch (Exception e) {
+                log.error("Failed to send welcome notification for social login user: {}", user.getEmail(), e);
+                // Don't fail the registration if notification fails
+            }
         }
 
         // Generate RSA-based tokens
