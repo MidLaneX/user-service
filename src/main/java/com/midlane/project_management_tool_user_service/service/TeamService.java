@@ -24,6 +24,7 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final TeamEventProducerService teamEventProducerService;
 
     @Transactional
     public TeamResponse createTeam(CreateTeamRequest request, Long creatorId) {
@@ -158,10 +159,27 @@ public class TeamService {
         }
 
         team.addMember(user);
-        teamRepository.save(team);
+        Team savedTeam = teamRepository.save(team);
 
         log.info("User added to team: userId={}, teamId={}, teamName={}",
                 userId, teamId, team.getName());
+
+        // Publish Kafka event after successful team member addition
+        try {
+            teamEventProducerService.publishTeamMemberAddedEvent(
+                userId,
+                team.getOrganization().getId(),
+                teamId,
+                team.getName(),
+                team.getOrganization().getName(),
+                user.getEmail(),
+                user.getFullName()
+            );
+        } catch (Exception e) {
+            log.error("Failed to publish team member added event for userId: {}, teamId: {}", userId, teamId, e);
+            // Note: We don't re-throw here to avoid rolling back the transaction
+            // The team member addition should still succeed even if event publishing fails
+        }
     }
 
     @Transactional

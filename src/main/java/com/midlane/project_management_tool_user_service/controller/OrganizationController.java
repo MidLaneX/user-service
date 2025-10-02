@@ -65,12 +65,12 @@ public class OrganizationController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{id}/members/{userId}")
+    @PostMapping("/{id}/members/add")
     public ResponseEntity<Void> addMember(
             @PathVariable Long id,
-            @PathVariable Long userId,
-            @RequestParam Long requesterId) {
-        organizationService.addMember(id, userId, requesterId);
+            @RequestParam Long requesterId,
+            @RequestParam String userEmail) {
+        organizationService.addMember(id, requesterId, userEmail);
         return ResponseEntity.ok().build();
     }
 

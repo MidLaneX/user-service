@@ -87,12 +87,12 @@ public class OrganizationService {
     }
 
     @Transactional
-    public void addMember(Long organizationId, Long userId, Long requesterId) {
+    public void addMember(Long organizationId, Long requesterId, String userEmail) {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
         
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + userEmail));
         
         // Check if requester is owner or admin
         if (!organization.getOwner().getId().equals(requesterId)) {
@@ -108,7 +108,7 @@ public class OrganizationService {
         organizationRepository.save(organization);
         
         log.info("User added to organization: userId={}, orgId={}, orgName={}", 
-                userId, organizationId, organization.getName());
+                userEmail, organizationId, organization.getName());
     }
 
     @Transactional
