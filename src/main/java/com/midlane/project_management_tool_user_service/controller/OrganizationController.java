@@ -3,6 +3,7 @@ package com.midlane.project_management_tool_user_service.controller;
 import com.midlane.project_management_tool_user_service.dto.CreateOrganizationRequest;
 import com.midlane.project_management_tool_user_service.dto.OrganizationResponse;
 import com.midlane.project_management_tool_user_service.dto.OrganizationMemberResponse;
+import com.midlane.project_management_tool_user_service.dto.OrganizationMemberBriefResponse;
 import com.midlane.project_management_tool_user_service.dto.OrganizationTeamResponse;
 import com.midlane.project_management_tool_user_service.model.Organization;
 import com.midlane.project_management_tool_user_service.service.OrganizationService;
@@ -79,17 +80,47 @@ public class OrganizationController {
             @PathVariable Long id,
             @PathVariable Long userId,
             @RequestParam Long requesterId) {
-        organizationService.removeMember(id, userId, requesterId);
+        organizationService.removeMemberImproved(id, userId, requesterId);
         return ResponseEntity.noContent().build();
     }
 
+    // DEPRECATED - Use /users/{userId}/organizations/owned instead
     @GetMapping("/owner/{ownerId}")
+    @Deprecated
     public ResponseEntity<List<OrganizationResponse>> getOrganizationsByOwner(@PathVariable Long ownerId) {
-        List<Organization> organizations = organizationService.getOrganizationsByOwner(ownerId);
-        List<OrganizationResponse> response = organizations.stream()
-                .map(this::mapToResponse)
-                .collect(java.util.stream.Collectors.toList());
-        return ResponseEntity.ok(response);
+        List<OrganizationResponse> organizations = organizationService.getOwnedOrganizations(ownerId);
+        return ResponseEntity.ok(organizations);
+    }
+
+    // NEW: Clear API - Get organizations owned by user
+    @GetMapping("/users/{userId}/owned")
+    public ResponseEntity<List<OrganizationResponse>> getOwnedOrganizations(@PathVariable Long userId) {
+        List<OrganizationResponse> organizations = organizationService.getOwnedOrganizations(userId);
+        return ResponseEntity.ok(organizations);
+    }
+
+    // NEW: Clear API - Get organizations where user is member (but not owner)
+    @GetMapping("/users/{userId}/member")
+    public ResponseEntity<List<OrganizationResponse>> getMemberOrganizations(@PathVariable Long userId) {
+        List<OrganizationResponse> organizations = organizationService.getMemberOrganizations(userId);
+        return ResponseEntity.ok(organizations);
+    }
+
+    // NEW: Clear API - Get all organizations for user (owned + member)
+    @GetMapping("/users/{userId}/all")
+    public ResponseEntity<List<OrganizationResponse>> getAllUserOrganizations(@PathVariable Long userId) {
+        List<OrganizationResponse> organizations = organizationService.getAllUserOrganizations(userId);
+        return ResponseEntity.ok(organizations);
+    }
+
+    // NEW: Add member by user ID instead of email
+    @PostMapping("/{id}/members/{userId}")
+    public ResponseEntity<Void> addMemberById(
+            @PathVariable Long id,
+            @PathVariable Long userId,
+            @RequestParam Long requesterId) {
+        organizationService.addMemberById(id, requesterId, userId);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{organizationId}/members")
@@ -102,6 +133,12 @@ public class OrganizationController {
     public ResponseEntity<List<OrganizationTeamResponse>> getOrganizationTeams(@PathVariable Long id) {
         List<OrganizationTeamResponse> teams = organizationService.getOrganizationTeams(id);
         return ResponseEntity.ok(teams);
+    }
+
+    @GetMapping("/{organizationId}/members/brief")
+    public ResponseEntity<List<OrganizationMemberBriefResponse>> getOrganizationMembersBrief(@PathVariable Long organizationId) {
+        List<OrganizationMemberBriefResponse> membersBrief = organizationService.getOrganizationMembersBrief(organizationId);
+        return ResponseEntity.ok(membersBrief);
     }
 
     private OrganizationResponse mapToResponse(Organization organization) {

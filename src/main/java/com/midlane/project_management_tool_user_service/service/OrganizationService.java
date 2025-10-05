@@ -3,6 +3,7 @@ package com.midlane.project_management_tool_user_service.service;
 import com.midlane.project_management_tool_user_service.dto.CreateOrganizationRequest;
 import com.midlane.project_management_tool_user_service.dto.OrganizationResponse;
 import com.midlane.project_management_tool_user_service.dto.OrganizationMemberResponse;
+import com.midlane.project_management_tool_user_service.dto.OrganizationMemberBriefResponse;
 import com.midlane.project_management_tool_user_service.dto.OrganizationTeamResponse;
 import com.midlane.project_management_tool_user_service.model.Organization;
 import com.midlane.project_management_tool_user_service.model.User;
@@ -42,9 +43,9 @@ public class OrganizationService {
 
         Organization savedOrg = organizationRepository.save(organization);
         
-        // Auto-add owner as member
-        savedOrg.addMember(owner);
-        savedOrg = organizationRepository.save(savedOrg);
+        // Use the business method to properly add owner as member
+        owner.createOrganization(savedOrg);
+        userRepository.save(owner);
 
         log.info("Organization created: id={}, name={}, owner={}", 
                 savedOrg.getId(), savedOrg.getName(), owner.getEmail());
@@ -229,5 +230,105 @@ public class OrganizationService {
     // NEW: Method for project service to get teams for dropdown
     public List<OrganizationTeamResponse> getTeamsByOrganization(Long organizationId) {
         return getOrganizationTeams(organizationId);
+    }
+
+    // NEW: Clear methods for frontend - Get organizations owned by user
+    public List<OrganizationResponse> getOwnedOrganizations(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        return user.getOwnedOrganizations().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    // NEW: Clear methods for frontend - Get organizations where user is member (but not owner)
+    public List<OrganizationResponse> getMemberOrganizations(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        return user.getOrganizations().stream()
+                .filter(org -> !org.getOwner().getId().equals(userId)) // Exclude owned organizations
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    // NEW: Get all organizations for a user (owned + member)
+    public List<OrganizationResponse> getAllUserOrganizations(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        return user.getOrganizations().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    // IMPROVED: Better member management with proper relationship handling
+    @Transactional
+    public void addMemberById(Long organizationId, Long requesterId, Long userIdToAdd) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+
+        User userToAdd = userRepository.findById(userIdToAdd)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userIdToAdd));
+
+        User requester = userRepository.findById(requesterId)
+                .orElseThrow(() -> new RuntimeException("Requester not found with ID: " + requesterId));
+
+        // Check if requester is owner
+        if (!organization.getOwner().getId().equals(requesterId)) {
+            throw new RuntimeException("Only organization owner can add members");
+        }
+
+        // Check if user is already a member
+        if (organization.getMembers().contains(userToAdd)) {
+            throw new RuntimeException("User is already a member of this organization");
+        }
+
+        // Use business method to properly handle relationships
+        userToAdd.joinOrganization(organization);
+        userRepository.save(userToAdd);
+
+        log.info("User added to organization: userId={}, orgId={}, orgName={}",
+                userIdToAdd, organizationId, organization.getName());
+    }
+
+    // IMPROVED: Better member removal with proper relationship handling
+    @Transactional
+    public void removeMemberImproved(Long organizationId, Long userId, Long requesterId) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        // Check if requester is owner
+        if (!organization.getOwner().getId().equals(requesterId)) {
+            throw new RuntimeException("Only organization owner can remove members");
+        }
+
+        // Cannot remove owner
+        if (organization.getOwner().equals(user)) {
+            throw new RuntimeException("Cannot remove organization owner");
+        }
+
+        // Use business method to properly handle relationships including teams
+        user.leaveOrganization(organization);
+        userRepository.save(user);
+
+        log.info("User removed from organization: userId={}, orgId={}, orgName={}",
+                userId, organizationId, organization.getName());
+    }
+
+    public List<OrganizationMemberBriefResponse> getOrganizationMembersBrief(Long organizationId) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+
+        return organization.getMembers().stream()
+                .map(user -> OrganizationMemberBriefResponse.builder()
+                        .userId(user.getUserId())
+                        .name(user.getFullName()) // Use the business method for better name handling
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
     }
 }
