@@ -1,6 +1,7 @@
 package com.midlane.project_management_tool_user_service.controller;
 
 import com.midlane.project_management_tool_user_service.dto.CreateTeamRequest;
+import com.midlane.project_management_tool_user_service.dto.MemberDetailsResponse;
 import com.midlane.project_management_tool_user_service.dto.TeamResponse;
 import com.midlane.project_management_tool_user_service.service.TeamService;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +66,21 @@ public class TeamController {
             @RequestParam Long requesterId) {
         teamService.addMember(teamId, userId, requesterId);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{teamId}/members")
+    public ResponseEntity<List<MemberDetailsResponse>> getTeamMembers(@PathVariable Long teamId) {
+        List<MemberDetailsResponse> members = teamService.getTeamMembers(teamId);
+        return ResponseEntity.ok(members);
+    }
+
+    @GetMapping("/organization/{organizationId}/user/{userId}")
+    public ResponseEntity<List<TeamResponse>> getTeamsByOrganizationAndUser(
+            @PathVariable Long organizationId,
+            @PathVariable Long userId) {
+        log.info("Getting teams for organization {} where user {} is a member", organizationId, userId);
+        List<TeamResponse> teams = teamService.getTeamsByOrganizationAndMember(organizationId, userId);
+        return ResponseEntity.ok(teams);
     }
 
     @DeleteMapping("/{teamId}/members/{userId}")

@@ -1,6 +1,7 @@
 package com.midlane.project_management_tool_user_service.service;
 
 import com.midlane.project_management_tool_user_service.dto.CreateTeamRequest;
+import com.midlane.project_management_tool_user_service.dto.MemberDetailsResponse;
 import com.midlane.project_management_tool_user_service.dto.TeamResponse;
 import com.midlane.project_management_tool_user_service.model.Organization;
 import com.midlane.project_management_tool_user_service.model.Team;
@@ -164,6 +165,8 @@ public class TeamService {
         log.info("User added to team: userId={}, teamId={}, teamName={}",
                 userId, teamId, team.getName());
 
+        // Enhanced logging for Kafka event publishing
+        log.info("Attempting to publish team member added event for userId: {}, teamId: {}", userId, teamId);
         // Publish Kafka event after successful team member addition
         try {
             teamEventProducerService.publishTeamMemberAddedEvent(
@@ -175,6 +178,7 @@ public class TeamService {
                 user.getEmail(),
                 user.getFullName()
             );
+            log.info("Successfully published team member added event for userId: {}, teamId: {}", userId, teamId);
         } catch (Exception e) {
             log.error("Failed to publish team member added event for userId: {}, teamId: {}", userId, teamId, e);
             // Note: We don't re-throw here to avoid rolling back the transaction
@@ -246,6 +250,25 @@ public class TeamService {
         return teamRepository.findByTeamLeadId(userId);
     }
 
+    public List<TeamResponse> getTeamsByOrganizationAndMember(Long organizationId, Long userId) {
+        // Verify that the organization exists
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+
+        // Verify that the user exists
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        // Get all teams where the user is a member
+        List<Team> userTeams = teamRepository.findByMemberId(userId);
+
+        // Filter teams by organization ID and map to response
+        return userTeams.stream()
+                .filter(team -> team.getOrganization().getId().equals(organizationId))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
     public List<Team> getTeamsWithAvailableSlots() {
         return teamRepository.findTeamsWithAvailableSlots();
     }
@@ -290,5 +313,20 @@ public class TeamService {
         }
 
         return false;
+    }
+
+    public List<MemberDetailsResponse> getTeamMembers(Long teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found with ID: " + teamId));
+
+        return team.getMembers().stream()
+                .map(member -> MemberDetailsResponse.builder()
+                        .memberId(member.getUserId())
+                        .name(member.getFullName())
+                        .email(member.getEmail())
+                        .role(member.getRole() != null ? member.getRole().getName() : "USER")
+                        .isTeamLead(team.getTeamLead() != null && team.getTeamLead().equals(member))
+                        .build())
+                .collect(Collectors.toList());
     }
 }
