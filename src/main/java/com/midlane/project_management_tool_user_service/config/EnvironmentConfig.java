@@ -9,3 +9,4 @@ public class EnvironmentConfig {
     // This class ensures that .env file is loaded into the Spring environment
     // The ignoreResourceNotFound = true means the application won't fail if .env doesn't exist
 }
+

@@ -67,6 +67,33 @@ public class TeamService {
         log.info("Team created: id={}, name={}, orgId={}, creator={}",
                 savedTeam.getId(), savedTeam.getName(), request.getOrganizationId(), creator.getEmail());
 
+        // Publish team creation event
+        try {
+            teamEventProducerService.publishTeamCreatedEvent(
+                    savedTeam.getId(),
+                    savedTeam.getName(),
+                    savedTeam.getDescription(),
+                    creatorId
+            );
+            log.info("Successfully published team created event for teamId: {}", savedTeam.getId());
+        } catch (Exception e) {
+            log.error("Failed to publish team created event for teamId: {}", savedTeam.getId(), e);
+            // Don't fail the team creation if event publishing fails
+        }
+
+        // Publish member added to team event for the creator (as owner/admin role)
+        try {
+            teamEventProducerService.publishMemberAddedToTeamEvent(
+                    savedTeam.getId(),
+                    creatorId,
+                    "OWNER" // Creator gets owner role
+            );
+            log.info("Successfully published member added to team event for creator: {}", creatorId);
+        } catch (Exception e) {
+            log.error("Failed to publish member added to team event for creator: {}", creatorId, e);
+            // Don't fail the team creation if event publishing fails
+        }
+
         return mapToResponse(savedTeam);
     }
 
@@ -167,7 +194,7 @@ public class TeamService {
 
         // Enhanced logging for Kafka event publishing
         log.info("Attempting to publish team member added event for userId: {}, teamId: {}", userId, teamId);
-        // Publish Kafka event after successful team member addition
+        // Publish Kafka event after successful team member addition (existing event)
         try {
             teamEventProducerService.publishTeamMemberAddedEvent(
                 userId,
@@ -183,6 +210,18 @@ public class TeamService {
             log.error("Failed to publish team member added event for userId: {}, teamId: {}", userId, teamId, e);
             // Note: We don't re-throw here to avoid rolling back the transaction
             // The team member addition should still succeed even if event publishing fails
+        }
+
+        // Publish new member added to team event (for collaboration service)
+        try {
+            teamEventProducerService.publishMemberAddedToTeamEvent(
+                    teamId,
+                    userId,
+                    "MEMBER" // Default role for added members
+            );
+            log.info("Successfully published member added to team event for userId: {}, teamId: {}", userId, teamId);
+        } catch (Exception e) {
+            log.error("Failed to publish member added to team event for userId: {}, teamId: {}", userId, teamId, e);
         }
     }
 
@@ -207,6 +246,15 @@ public class TeamService {
 
         log.info("User removed from team: userId={}, teamId={}, teamName={}",
                 userId, teamId, team.getName());
+
+        // Publish team member removed event
+        try {
+            teamEventProducerService.publishTeamMemberRemovedEvent(teamId, userId);
+            log.info("Successfully published team member removed event for userId: {}, teamId: {}", userId, teamId);
+        } catch (Exception e) {
+            log.error("Failed to publish team member removed event for userId: {}, teamId: {}", userId, teamId, e);
+            // Don't fail the member removal if event publishing fails
+        }
     }
 
     @Transactional
