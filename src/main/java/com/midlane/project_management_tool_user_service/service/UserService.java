@@ -39,7 +39,8 @@ public class UserService {
     private final CustomUserDetailsService userDetailsService;
     private final RefreshTokenService refreshTokenService;
     private final SocialAuthService socialAuthService;
-    private final NotificationService notificationService; // Add NotificationService
+    private final NotificationService notificationService;
+    private final TeamEventProducerService teamEventProducerService; // Add this injection
 
     @Value("${jwt.access-token.expiration}") // 15 minutes
     private long accessTokenExpiration;
@@ -73,6 +74,20 @@ public class UserService {
 
         // Log user registration
         log.info("User registered successfully: userId={}, email={}", savedUser.getId(), savedUser.getEmail());
+        log.info("Trying to publish user registration event to Kafka for userId={}, email={}", savedUser.getId(), savedUser.getEmail());
+        // Publish user registration event for collaboration service
+        try {
+            log.info("Publishing user registered event for userId={}, email={}", savedUser.getId(), savedUser.getEmail());
+            teamEventProducerService.publishUserRegisteredEvent(
+                    savedUser.getUserId(),
+                    savedUser.getEmail(),
+                    savedUser.getFirstName() + " " + (savedUser.getLastName() != null ? savedUser.getLastName() : ""),
+                    savedUser.getProfilePictureUrl()
+            );
+        } catch (Exception e) {
+            log.error("Failed to publish user registered event for user: {}", savedUser.getEmail(), e);
+            // Don't fail the registration if event publishing fails
+        }
 
         // Send welcome notification
         try {
@@ -294,8 +309,29 @@ public class UserService {
             user = createUserFromSocialInfo(socialUserInfo);
             isNewUser = true;
             
-            // Log user creation instead of publishing to Kafka
+            // Log user creation
             log.info("New user created from social login: userId={}, email={}", user.getId(), user.getEmail());
+
+            // Publish user registered event to Kafka for new social users
+            try {
+                String fullName = (user.getFirstName() != null ? user.getFirstName() : "") +
+                                 (user.getLastName() != null ? " " + user.getLastName() : "");
+                fullName = fullName.trim();
+
+                teamEventProducerService.publishUserRegisteredEvent(
+                    user.getUserId(),
+                    user.getEmail(),
+                    fullName.isEmpty() ? user.getEmail() : fullName,
+                    user.getProfilePictureUrl()
+                );
+
+                log.info("Published user registered event for social login user: userId={}, email={}",
+                        user.getUserId(), user.getEmail());
+            } catch (Exception e) {
+                log.error("Failed to publish user registered event for social login user: userId={}, email={}",
+                         user.getUserId(), user.getEmail(), e);
+                // Don't fail the registration if event publishing fails
+            }
 
             // Send welcome notification for new social login users
             try {

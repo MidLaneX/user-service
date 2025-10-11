@@ -1,6 +1,7 @@
 package com.midlane.project_management_tool_user_service.service;
 
 import com.midlane.project_management_tool_user_service.dto.CreateTeamRequest;
+import com.midlane.project_management_tool_user_service.dto.MemberDetailsResponse;
 import com.midlane.project_management_tool_user_service.dto.TeamResponse;
 import com.midlane.project_management_tool_user_service.model.Organization;
 import com.midlane.project_management_tool_user_service.model.Team;
@@ -59,12 +60,25 @@ public class TeamService {
 
         Team savedTeam = teamRepository.save(team);
 
-        // Auto-add creator as team member
-        savedTeam.addMember(creator);
-        savedTeam = teamRepository.save(savedTeam);
-
         log.info("Team created: id={}, name={}, orgId={}, creator={}",
                 savedTeam.getId(), savedTeam.getName(), request.getOrganizationId(), creator.getEmail());
+
+        // Publish team creation event
+        try {
+            teamEventProducerService.publishTeamCreatedEvent(
+                    savedTeam.getId(),
+                    savedTeam.getName(),
+                    savedTeam.getDescription(),
+                    creatorId
+            );
+            log.info("Successfully published team created event for teamId: {}", savedTeam.getId());
+        } catch (Exception e) {
+            log.error("Failed to publish team created event for teamId: {}", savedTeam.getId(), e);
+            // Don't fail the team creation if event publishing fails
+        }
+
+        // Add creator as team member using the addMember logic for consistent event publishing
+        addMemberInternal(savedTeam, creator, creatorId, "OWNER");
 
         return mapToResponse(savedTeam);
     }
@@ -164,7 +178,9 @@ public class TeamService {
         log.info("User added to team: userId={}, teamId={}, teamName={}",
                 userId, teamId, team.getName());
 
-        // Publish Kafka event after successful team member addition
+        // Enhanced logging for Kafka event publishing
+        log.info("Attempting to publish team member added event for userId: {}, teamId: {}", userId, teamId);
+        // Publish Kafka event after successful team member addition (existing event)
         try {
             teamEventProducerService.publishTeamMemberAddedEvent(
                 userId,
@@ -175,10 +191,23 @@ public class TeamService {
                 user.getEmail(),
                 user.getFullName()
             );
+            log.info("Successfully published team member added event for userId: {}, teamId: {}", userId, teamId);
         } catch (Exception e) {
             log.error("Failed to publish team member added event for userId: {}, teamId: {}", userId, teamId, e);
             // Note: We don't re-throw here to avoid rolling back the transaction
             // The team member addition should still succeed even if event publishing fails
+        }
+
+        // Publish new member added to team event (for collaboration service)
+        try {
+            teamEventProducerService.publishMemberAddedToTeamEvent(
+                    teamId,
+                    userId,
+                    "MEMBER" // Default role for added members
+            );
+            log.info("Successfully published member added to team event for userId: {}, teamId: {}", userId, teamId);
+        } catch (Exception e) {
+            log.error("Failed to publish member added to team event for userId: {}, teamId: {}", userId, teamId, e);
         }
     }
 
@@ -203,6 +232,15 @@ public class TeamService {
 
         log.info("User removed from team: userId={}, teamId={}, teamName={}",
                 userId, teamId, team.getName());
+
+        // Publish team member removed event
+        try {
+            teamEventProducerService.publishTeamMemberRemovedEvent(teamId, userId);
+            log.info("Successfully published team member removed event for userId: {}, teamId: {}", userId, teamId);
+        } catch (Exception e) {
+            log.error("Failed to publish team member removed event for userId: {}, teamId: {}", userId, teamId, e);
+            // Don't fail the member removal if event publishing fails
+        }
     }
 
     @Transactional
@@ -244,6 +282,25 @@ public class TeamService {
 
     public List<Team> getTeamsByLead(Long userId) {
         return teamRepository.findByTeamLeadId(userId);
+    }
+
+    public List<TeamResponse> getTeamsByOrganizationAndMember(Long organizationId, Long userId) {
+        // Verify that the organization exists
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+
+        // Verify that the user exists
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+        // Get all teams where the user is a member
+        List<Team> userTeams = teamRepository.findByMemberId(userId);
+
+        // Filter teams by organization ID and map to response
+        return userTeams.stream()
+                .filter(team -> team.getOrganization().getId().equals(organizationId))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     public List<Team> getTeamsWithAvailableSlots() {
@@ -290,5 +347,65 @@ public class TeamService {
         }
 
         return false;
+    }
+
+    public List<MemberDetailsResponse> getTeamMembers(Long teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found with ID: " + teamId));
+
+        return team.getMembers().stream()
+                .map(member -> MemberDetailsResponse.builder()
+                        .memberId(member.getUserId())
+                        .name(member.getFullName())
+                        .email(member.getEmail())
+                        .role(member.getRole() != null ? member.getRole().getName() : "USER")
+                        .isTeamLead(team.getTeamLead() != null && team.getTeamLead().equals(member))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Internal helper method to add a member to a team with consistent event publishing.
+     * Used by createTeam to add the creator as a member with OWNER role.
+     */
+    @Transactional
+    void addMemberInternal(Team team, User user, Long userId, String role) {
+        team.addMember(user);
+        Team savedTeam = teamRepository.save(team);
+
+        log.info("User added to team internally: userId={}, teamId={}, teamName={}, role={}",
+                userId, team.getId(), team.getName(), role);
+
+        // Enhanced logging for Kafka event publishing
+        log.info("Attempting to publish team member added event for userId: {}, teamId: {}", userId, team.getId());
+
+        // Publish Kafka event after successful team member addition (existing event)
+        try {
+            teamEventProducerService.publishTeamMemberAddedEvent(
+                    userId,
+                    team.getOrganization().getId(),
+                    team.getId(),
+                    team.getName(),
+                    team.getOrganization().getName(),
+                    user.getEmail(),
+                    user.getFullName()
+            );
+            log.info("Successfully published team member added event for userId: {}, teamId: {}", userId, team.getId());
+        } catch (Exception e) {
+            log.error("Failed to publish team member added event for userId: {}, teamId: {}", userId, team.getId(), e);
+            // Note: We don't re-throw here to avoid rolling back the transaction
+        }
+
+        // Publish member added to team event (for collaboration service)
+        try {
+            teamEventProducerService.publishMemberAddedToTeamEvent(
+                    team.getId(),
+                    userId,
+                    role
+            );
+            log.info("Successfully published member added to team event for userId: {}, teamId: {}, role: {}", userId, team.getId(), role);
+        } catch (Exception e) {
+            log.error("Failed to publish member added to team event for userId: {}, teamId: {}, role: {}", userId, team.getId(), role, e);
+        }
     }
 }
