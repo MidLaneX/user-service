@@ -28,6 +28,9 @@ public class KafkaProducerConfig {
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        
+        // Add type information to headers for proper deserialization
+        configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, true);
 
         // Additional producer configurations for reliability
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
