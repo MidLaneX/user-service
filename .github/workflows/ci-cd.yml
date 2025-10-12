@@ -50,12 +50,13 @@ jobs:
         spring.datasource.password=postgres
         spring.jpa.hibernate.ddl-auto=create-drop
         spring.jpa.show-sql=false
-        logging.level.org.springframework.data.mongodb=DEBUG
-        spring.kafka.bootstrap-servers=localhost:9092
+        # Disable Kafka for CI/CD
+        spring.kafka.enabled=false
+        spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
         EOF
 
     - name: Run tests
-      run: mvn clean test -Dspring.profiles.active=test
+      run: mvn clean test -Dspring.profiles.active=test -Dspring.kafka.enabled=false
       continue-on-error: true
 
   build:
